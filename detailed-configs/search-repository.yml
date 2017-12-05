@@ -1,0 +1,38 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: search-repository
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: search-repository
+    spec:
+      containers:
+      - name: search-repository
+        image:  aardelean/elasticsearch-repository:1.1
+        ports:
+        - name: es-repo-port
+          containerPort: 8080
+        env:
+        - name: ELASTIC_HOST
+          value: "8080"
+        - name: ELASTIC_PORT
+          value: "9300"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-repository-service
+  labels:
+    app:  es-repo
+spec:
+  ports:
+  - port: 80
+    name: search-repo-port
+    targetPort: es-repo-port
+    protocol: TCP
+  selector:
+    app:  search-repository
+  type: NodePort

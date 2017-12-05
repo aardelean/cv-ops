@@ -1,0 +1,257 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dbaccess
+type: Opaque
+data:
+  username: cG9zdGdyZXM=
+  password: cGFzc3dvcmQ=
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: disk
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/var/lib/postgresql/db-data"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgresdb
+    spec:
+      containers:
+      - name: postgresdb
+        image: postgres
+        ports:
+        - name: postgres-port
+          containerPort: 5432
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dbaccess
+              key: password
+        - name:  POSTGRES_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dbaccess
+              key: username
+        - name:  POSTGRES_DB
+          value:  cvs
+        - name: PGDATA
+          value:  "/var/lib/postgresql/data"
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: "/var/lib/postgresql/data"
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName:  claim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+spec:
+  ports:
+  - port: 5432
+    targetPort: postgres-port
+    protocol: TCP
+  selector:
+    app:  postgresdb
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cv-repository
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cv-repository
+    spec:
+      containers:
+      - name: cv-repository
+        image: aardelean/persistence-repository:1.0
+        ports:
+        - name: repository-port
+          containerPort: 8180
+        env:
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dbaccess
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dbaccess
+              key: password
+        - name: DB_HOST
+          value:  postgres-service
+        - name: DB_PORT
+          value:  "5432"
+        - name: DB_SCHEMA
+          value:  cvs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cv-repository-service
+spec:
+  ports:
+  - port: 80
+    targetPort: repository-port
+    protocol: TCP
+  selector:
+    app:  cv-repository
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: elasticsearch
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch-2
+        image:  elasticsearch:2.4.6
+        ports:
+        - name: es-http-port
+          containerPort: 9200
+        - name: es-own-port
+          containerPort: 9300
+        env:
+        - name: discovery.type
+          value: single-node
+        - name: transport.host
+          value:  0.0.0.0
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-service
+spec:
+  ports:
+  - port: 9300
+    targetPort: es-own-port
+    protocol: TCP
+  - port: 9200
+    targetPort: es-http-port
+    protocol: TCP
+  selector:
+    app:  elasticsearch
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: search-repository
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: search-repository
+    spec:
+      containers:
+      - name: search-repository
+        image:  aardelean/elasticsearch-repository:1.1
+        ports:
+        - name: es-repo-port
+          containerPort: 8080
+        env:
+        - name: ELASTIC_HOST
+          value: elasticsearch-service
+        env:
+        - name: ELASTIC_PORT
+          value: 9300
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-repository-service
+spec:
+  ports:
+  - port: 8080
+    targetPort: es-repo-port
+    protocol: TCP
+  selector:
+    app:  search-repository
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cv-service
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cv-service
+    spec:
+      containers:
+      - name: cv-service`
+        image:  aardelean/cv-service:1.0
+        ports:
+        - name: cvs-port
+          containerPort: 8220
+        env:
+        - name: FULL_TEXT_REPOSITORY_HOST
+          value: search-repository-service
+        env:
+        - name: FULL_TEXT_REPOSITORY_PORT
+          value: 8080
+        env:
+        - name: PERSISTENCE_REPOSITORY_HOST
+          value: persistence-repository-service
+        env:
+        - name: PERSISTENCE_REPOSITORY_PORT
+          value: 8180
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cv-service-service
+spec:
+  ports:
+  - port: 80
+    targetPort: cvs-port
+    protocol: TCP
+  selector:
+    app:  search-repository
+  type: LoadBalancer

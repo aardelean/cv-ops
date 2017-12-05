@@ -1,0 +1,47 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cv-repository
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cv-repository
+    spec:
+      containers:
+      - name: cv-repository
+        image: aardelean/persistence-repository:1.1
+        ports:
+        - name: repository-port
+          containerPort: 8180
+        env:
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dbaccess
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dbaccess
+              key: password
+        - name: DB_HOST
+          value:  postgres-service
+        - name: DB_PORT
+          value:  "5432"
+        - name: DB_SCHEMA
+          value:  cv_db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cv-repository-service
+spec:
+  ports:
+  - port: 80
+    targetPort: repository-port
+    protocol: TCP
+  selector:
+    app:  cv-repository
+  type: NodePort
