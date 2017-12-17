@@ -1,0 +1,36 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: grafana-deployment
+spec:
+  replicas: 1 # tells deployment to run 1 pod matching the template below
+  template: # crete pods using pod definition in this template
+    metadata:
+      labels: # these key value pairs will be attached to pods
+        app: grafana-server
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana
+        ports:
+        - name: grafana-port
+          containerPort: 3000
+        env:
+        - name: server.adminUser
+          value:  admin
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          value:  password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-service
+spec:
+  selector: # exposes any pods with the following labels as a service
+    app: grafana-server
+  type: NodePort
+  ports:
+  - port: 3000 # this Service's port (cluster-internal IP clusterIP)
+    name: grafana-serv-port
+    targetPort: grafana-port # pods expose this port
+  type: NodePort

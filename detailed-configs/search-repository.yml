@@ -17,7 +17,7 @@ spec:
           containerPort: 8080
         env:
         - name: ELASTIC_HOST
-          value: "8080"
+          value: elasticsearch-service
         - name: ELASTIC_PORT
           value: "9300"
 ---
