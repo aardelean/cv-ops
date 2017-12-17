@@ -11,7 +11,7 @@ spec:
     spec:
       containers:
       - name: cv-service
-        image:  aardelean/cv-service:1.1
+        image:  aardelean/cv-service:1.3
         ports:
         - name: cvs-port
           containerPort: 8220
@@ -24,6 +24,11 @@ spec:
           value: persistence-repository-service
         - name: PERSISTENCE_REPOSITORY_PORT
           value: "8180"
+        - name: example.property
+          valueFrom:
+            configMapKeyRef:
+              name: example-config
+              key:  example.property
 ---
 apiVersion: v1
 kind: Service

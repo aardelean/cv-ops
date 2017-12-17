@@ -1,0 +1,8 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: example-config
+  namespace: default
+data:
+  # example of a simple property defined using --from-literal
+  example.property: hello

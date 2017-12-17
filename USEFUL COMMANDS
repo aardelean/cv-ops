@@ -1,0 +1,30 @@
+#Google cloud
+docker build -t gcr.io/spring-boot-demo-168110:1.0 .
+gcloud docker -- push gcr.io/spring-boot-demo-168110:1.0
+
+#l8s + gcloud
+kubectl run gce --image=gcr.io/spring-boot-demo-168110:1.0 --port=8080
+#k8s commands
+kubectl expose deployment gce --type=“LoadBalancer"
+kubectl get service gce —watch
+kubectl scale deployment gce --replicas=4
+kubectl get pods
+kubectl describe pod <pod>
+kubectl expose pod <pod> —port=<port> —name=<name>
+kubectl port-forward <pod> 8080 (localmachine)
+kubectl exec <pod> —command
+kubectl attach <pod> -i #(see console)
+kubectl run -i —tty busybox —image=busybox —restart=Never — sh (run a shell in a pod)
+kubectl delete pod <pod>
+
+# k8s Create DISK
+gcloud compute disks create --size=500GB --zone=europe-west1-b disk-1
+# minikube get url
+minikube service grafana-service —url
+
+# Deployment rollout
+kubectl set image deployments/cv-service cv-service=aardelean/cv-service:1.2
+Private Registry
+# Private registry
+kubectl create secret docker-registry regsecret --docker-server=docker.hub/ --docker-username=aardelean --docker-password=password --docker-email=ardelean.i.alexandru@gmail.com
+kubectl get secret regsecret --output=yaml
